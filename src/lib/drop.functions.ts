@@ -81,7 +81,7 @@ export const dropComplete = createServerFn({ method: "POST" })
     if ("error" in r) throw new Error(r.error);
     if (!data.path.startsWith(`${r.link.org_id}/`)) throw new Error("Nieprawidłowa ścieżka.");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { sendDummyNotification, verifyStoredObject } = await import("./tokens.server");
+    const { sendNotification, verifyStoredObject } = await import("./tokens.server");
     const mime = data.mime || "application/octet-stream";
     await verifyStoredObject(supabaseAdmin, data.path, data.size, mime);
     // Atomic: uses = uses + 1 only while the link is still valid and under its limit
@@ -122,12 +122,30 @@ export const dropComplete = createServerFn({ method: "POST" })
       target: item.id,
     });
     if (recipient) {
-      await sendDummyNotification(supabaseAdmin, recipient, r.orgName);
+      await sendNotification(supabaseAdmin, recipient, r.orgName);
     } else {
       // Clinic inbox: notify active reception/admins so someone triages it
       const { data: staff } = await supabaseAdmin
         .from("memberships").select("user_id").eq("org_id", r.link.org_id).eq("is_active", true).in("role", ["admin", "staff"]);
-      for (const s of staff ?? []) await sendDummyNotification(supabaseAdmin, s.user_id, r.orgName);
+      for (const s of staff ?? []) await sendNotification(supabaseAdmin, s.user_id, r.orgName);
     }
     return { deliveredAt: item.created_at, recipientName: r.recipientName, orgName: r.orgName, itemId: item.id };
+  });
+
+/**
+ * Delivery receipt for the anonymous sender: "dostarczono" / "otwarto o ...".
+ * Needs the (unguessable) item id returned by dropComplete AND the link token it came from;
+ * exposes only two timestamps, never names, notes or paths.
+ */
+export const getDropReceipt = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ token: tokenSchema, itemIds: z.array(z.string().uuid()).min(1).max(20) }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { hashToken } = await import("./tokens.server");
+    const { data: link } = await supabaseAdmin
+      .from("drop_links").select("id").eq("token_hash", await hashToken(data.token)).maybeSingle();
+    if (!link) return { items: [] as { id: string; openedAt: string | null }[] };
+    const { data: rows } = await supabaseAdmin
+      .from("items").select("id, first_opened_at").eq("drop_link_id", link.id).in("id", data.itemIds);
+    return { items: (rows ?? []).map((r) => ({ id: r.id, openedAt: r.first_opened_at })) };
   });

@@ -1,24 +1,37 @@
-# Clinic Flow Advanced
+# DentalHub (Clinic Flow Plus)
 
-na podstawie mvp, statusu i zawartości repozytorium z github ( https://github.com/matler95/clinic-flow-enhanced ), dokończ projekt. Chcę żeby był na jak najwyższym możliwym na teraz stopniu zaawansowania. Na koniec podsumuj wszystko jak w statusie
+Jeden inbox plików dla lekarza pracującego w wielu gabinetach. Recepcja i pracownie wrzucają pliki przez link
+**bez konta** (link tylko do wysyłania), lekarz dostaje powiadomienie bez danych wrażliwych i otwiera plik w 2 tapnięciach.
 
-This project was built with [Lovable](https://lovable.dev).
+> **Tryb POC: bez danych pacjentów.** Dane pacjentów dopiero po Gate 1 (patrz `docs/gate1-checklist.md`).
 
-## Build with Lovable
+Stos: TanStack Start (React 19, TS) + Lovable Cloud / Supabase (Postgres + RLS + Storage), Web Push (VAPID), PWA.
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/7fceb5cc-7dff-4dcb-80e9-e256af641c49).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## Uruchomienie
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+npm i --legacy-peer-deps
+npm run dev          # dev
+npm test             # vitest
+npm run build
 ```
+
+## Zmienne środowiskowe (serwer)
+
+| Zmienna | Po co |
+|---|---|
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY_PKCS8`, `VAPID_SUBJECT` | Web Push |
+| `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL` | e-mail jako kanał zapasowy (opcjonalnie) |
+| `LOVABLE_CRON_SECRET` | autoryzacja codziennego purge (ten sam sekret jako `CRON_SECRET` w GitHub Actions) |
+
+## Środowisko pilotażowe
+
+```sh
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... SEED_PASSWORD='min-12-znakow' APP_URL=https://... \
+  node scripts/seed-pilot.mjs
+```
+Tworzy „Gabinet Pilotażowy (POC)”, 3 konta (admin, lekarz, recepcja), link do wysyłania i **syntetyczny** pantomogram.
+
+## Dokumentacja
+- `AGENTS.md` – zasady architektury
+- `docs/threat-model.md`, `docs/runbook-incident.md`, `docs/gate1-checklist.md`, `docs/e2e-test-plan.md`

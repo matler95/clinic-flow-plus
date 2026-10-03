@@ -61,7 +61,9 @@ export const Route = createFileRoute("/api/public/hooks/purge-expired")({
             }
           }
         }
-        return Response.json({ purged, orphans });
+        // Delivery logs older than 30 days (data minimisation)
+        const { data: outbox } = await supabaseAdmin.rpc("purge_old_outbox");
+        return Response.json({ purged, orphans, outbox: outbox ?? 0 });
       },
     },
   },

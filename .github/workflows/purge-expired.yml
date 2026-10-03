@@ -1,0 +1,19 @@
+# Daily retention purge (G3): physically deletes expired files from Storage, then DB rows.
+# Required repository secrets: APP_URL (e.g. https://app.example.pl), CRON_SECRET (= LOVABLE_CRON_SECRET on the server).
+name: Retention purge
+on:
+  schedule:
+    - cron: "5 0 * * *"   # 00:05 UTC daily
+  workflow_dispatch:
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call purge-expired hook
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o out.json -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/public/hooks/purge-expired")
+          cat out.json; echo
+          test "$code" = "200"

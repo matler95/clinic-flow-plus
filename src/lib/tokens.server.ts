@@ -16,7 +16,7 @@ export async function hashToken(token: string): Promise<string> {
 // Strict allow-list: images, PDF and DICOM only. exe/zip/txt and unknown types are rejected.
 export const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "application/pdf", "application/dicom"];
 
-function sniff(b: Uint8Array): string | null {
+export function sniff(b: Uint8Array): string | null {
   const at = (o: number, sig: number[]) => sig.every((v, i) => b[o + i] === v);
   if (at(0, [0xff, 0xd8, 0xff])) return "image/jpeg";
   if (at(0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
@@ -56,21 +56,36 @@ export async function verifyStoredObject(admin: Admin, path: string, size: numbe
 export const MAX_BYTES = 50 * 1024 * 1024;
 
 /**
- * M3: notify a user about a new file. Real Web Push (VAPID, content-free) to every
- * registered device; the outbox row records the delivery result. E-mail stays a
- * recorded fallback until an e-mail provider is connected.
+ * M3: notify a user about a new file (guardrail G3: no file names, senders or patient data).
+ * - Web Push (VAPID, content-free) to every registered device.
+ * - E-mail fallback through Resend when RESEND_API_KEY is set; otherwise recorded as "queued_no_provider".
+ * Every attempt is written to notifications_outbox with its real result.
  */
-export async function sendDummyNotification(
+export async function sendNotification(
   admin: { from: (t: string) => any },
   userId: string,
   orgName: string,
 ) {
-  const body = `Nowy plik w: ${orgName}`; // no file names / patient data (G3)
+  const body = `Nowy plik w: ${orgName}`;
   const { pushToUser, pushConfigured } = await import("./push.server");
+  const { sendEmail, emailConfigured } = await import("./email.server");
   const res = await pushToUser(admin as any, userId).catch(() => ({ sent: 0, failed: 1 }));
   const pushStatus = !pushConfigured() ? "not_configured" : res.sent > 0 ? "sent" : res.failed > 0 ? "failed" : "no_device";
+
+  // E-mail is the fallback channel: sent when push did not reach any device (or always when no push is configured).
+  let emailStatus = "skipped_push_ok";
+  if (res.sent === 0) {
+    if (!emailConfigured()) emailStatus = "queued_no_provider";
+    else {
+      const { data: prof } = await admin.from("profiles").select("email").eq("id", userId).maybeSingle();
+      emailStatus = prof?.email ? await sendEmail(prof.email, orgName) : "no_address";
+    }
+  }
   await admin.from("notifications_outbox").insert([
     { user_id: userId, channel: "web_push", body, status: pushStatus },
-    { user_id: userId, channel: "email", body, status: "queued_no_provider" },
+    { user_id: userId, channel: "email", body, status: emailStatus },
   ]);
 }
+
+/** Back-compat alias (the helper used to be a dummy). */
+export const sendDummyNotification = sendNotification;

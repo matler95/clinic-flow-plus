@@ -423,6 +423,7 @@ export type Database = {
       }
       cancel_substitution: { Args: { _id: string }; Returns: undefined }
       consume_drop_link: { Args: { _id: string }; Returns: boolean }
+      purge_old_outbox: { Args: Record<PropertyKey, never>; Returns: number }
       create_organization: {
         Args: { _kind?: string; _name: string }
         Returns: string

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Camera, CheckCircle2, Upload, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { getDropInfo, dropInit, dropComplete } from "@/lib/drop.functions";
+import { getDropInfo, dropInit, dropComplete, getDropReceipt } from "@/lib/drop.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,7 +48,8 @@ function DropPage() {
   const [sender, setSender] = useState("");
   const [note, setNote] = useState("");
   const [progress, setProgress] = useState<number | null>(null);
-  const [done, setDone] = useState<{ at: string; count: number } | null>(null);
+  const [done, setDone] = useState<{ at: string; count: number; ids: string[] } | null>(null);
+  const [openedAt, setOpenedAt] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const camRef = useRef<HTMLInputElement>(null);
@@ -56,6 +57,26 @@ function DropPage() {
   useEffect(() => {
     setSender(localStorage.getItem("dh_sender") ?? "");
   }, []);
+
+  // Receipt "otwarto o …": poll while the confirmation screen is visible (every 10 s, max ~10 min)
+  useEffect(() => {
+    if (!done || openedAt) return;
+    let tries = 0;
+    const t = setInterval(async () => {
+      if (++tries > 60) return clearInterval(t);
+      try {
+        const r = await getDropReceipt({ data: { token, itemIds: done.ids } });
+        const opened = r.items.map((i) => i.openedAt).filter(Boolean).sort()[0];
+        if (opened) {
+          setOpenedAt(opened);
+          clearInterval(t);
+        }
+      } catch {
+        /* receipt is best-effort */
+      }
+    }, 10_000);
+    return () => clearInterval(t);
+  }, [done, openedAt, token]);
 
   if (!info.ok) return <Msg text={info.error} />;
   const title = info.recipientName ? `Plik dla ${info.recipientName}` : `Plik do skrzynki: ${info.orgName}`;
@@ -65,6 +86,7 @@ function DropPage() {
     localStorage.setItem("dh_sender", sender);
     setProgress(0);
     let last = "";
+    const ids: string[] = [];
     try {
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
@@ -74,9 +96,10 @@ function DropPage() {
         await putSigned(init.path, init.uploadToken, f, meta.mime);
         const r = await dropComplete({ data: { ...meta, path: init.path, senderName: sender, note } });
         last = r.deliveredAt;
+        ids.push(r.itemId);
         setProgress(((i + 1) / files.length) * 100);
       }
-      setDone({ at: last, count: files.length });
+      setDone({ at: last, count: files.length, ids });
     } catch (e) {
       toast.error((e as Error).message);
       setProgress(null);
@@ -94,10 +117,16 @@ function DropPage() {
             {info.recipientName ?? info.orgName} otrzymał(a) {done.count > 1 ? `${done.count} pliki` : "plik"} o{" "}
             {new Date(done.at).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" })}
           </p>
+          <p className="mt-3 text-base opacity-90" aria-live="polite">
+            {openedAt
+              ? `Otwarto o ${new Date(openedAt).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" })}`
+              : "Czekamy na otwarcie…"}
+          </p>
           <Button
             variant="secondary"
             className="mt-8"
             onClick={() => {
+              setOpenedAt(null);
               setDone(null);
               setFiles([]);
               setNote("");
@@ -134,7 +163,7 @@ function DropPage() {
         >
           <Upload className="h-10 w-10 text-primary" />
           <p className="mt-3 font-medium">Upuść plik tutaj lub kliknij</p>
-          <p className="text-sm text-muted-foreground">Zdjęcia, PDF, ZIP — do 50 MB</p>
+          <p className="text-sm text-muted-foreground">Zdjęcia (JPG, PNG, WebP), PDF lub DICOM — do 50 MB</p>
           <input ref={inputRef} type="file" accept={ACCEPT} multiple hidden onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
         </div>
         <Button variant="outline" className="mt-3 h-12 w-full md:hidden" onClick={() => camRef.current?.click()}>

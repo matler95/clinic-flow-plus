@@ -16,4 +16,7 @@
 - Memberships are deactivated (`is_active=false`), never deleted; helpers `is_member`/`has_org_role`/`shares_org` ignore inactive rows and offboarding repatriates files to the clinic inbox — access ends instantly without losing clinic records.
 - Retention purge deletes from storage before the DB row — never leave bytes without a record.
 - Role capabilities are defined once in src/lib/roles.ts and mirrored by RLS/RPCs — keep both in sync.
-- External services (Web Push without VAPID keys, e-mail, antivirus) are dummies writing to `notifications_outbox` — POC runs without third-party accounts.
+- Web Push is REAL (VAPID, content-free: no payload, so no file names/senders/patient data reach push services). E-mail fallback is real when `RESEND_API_KEY` + `EMAIL_FROM` are set (generic text only), otherwise recorded as `queued_no_provider`. Antivirus (ClamAV) is still a placeholder: `scan_status` stays `unscanned` until a scanner server in the EU is attached. Every notification attempt is logged in `notifications_outbox` with its real result.
+- Sender receipts: the anonymous sender sees "Dostarczono" and later "Otwarto o …" via `getDropReceipt` (needs the link token + unguessable item ids; exposes only timestamps).
+- `audit_log` is append-only (trigger + revoked UPDATE/DELETE). Retention: `.github/workflows/purge-expired.yml` calls `/api/public/hooks/purge-expired` daily; the hook also trims `notifications_outbox` (>30 days).
+- Security headers are set in `src/server.ts`; a strict CSP is a Gate 1 item (needs testing against the viewer blob/img sources).

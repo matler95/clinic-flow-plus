@@ -206,12 +206,21 @@ async function notify(userId: string, orgId: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { pushToUser } = await import("./push.server");
   const { data: org } = await supabaseAdmin.from("organizations").select("name").eq("id", orgId).maybeSingle();
-  void org;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const res = await pushToUser(supabaseAdmin as any, userId).catch(() => ({ sent: 0, failed: 1 }));
   // Mark the outbox row written by the RPC with the real delivery result
   const { data: row } = await supabaseAdmin.from("notifications_outbox").select("id").eq("user_id", userId).eq("status", "pending").order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (row) await supabaseAdmin.from("notifications_outbox").update({ status: res.sent > 0 ? "sent" : res.failed > 0 ? "failed" : "no_device" }).eq("id", row.id);
+  // E-mail fallback when push reached no device (content-free, see email.server.ts)
+  if (res.sent === 0) {
+    const { sendEmail, emailConfigured } = await import("./email.server");
+    let status = "queued_no_provider";
+    if (emailConfigured()) {
+      const { data: prof } = await supabaseAdmin.from("profiles").select("email").eq("id", userId).maybeSingle();
+      status = prof?.email ? await sendEmail(prof.email, org?.name ?? "Gabinet") : "no_address";
+    }
+    await supabaseAdmin.from("notifications_outbox").insert({ user_id: userId, channel: "email", body: `Nowy plik w: ${org?.name ?? "Gabinet"}`, status });
+  }
 }
 
 export const assignItem = createServerFn({ method: "POST" })
@@ -293,5 +302,13 @@ export const sendToClinicComplete = createServerFn({ method: "POST" })
       action: "item.send_to_clinic",
       target: data.fileName,
     });
+    // Reception/admins triage the clinic inbox, so they get the (content-free) notification
+    const { sendNotification } = await import("./tokens.server");
+    const { data: org } = await supabaseAdmin.from("organizations").select("name").eq("id", data.orgId).maybeSingle();
+    const { data: staff } = await supabaseAdmin
+      .from("memberships").select("user_id").eq("org_id", data.orgId).eq("is_active", true).in("role", ["admin", "staff"]);
+    for (const s of staff ?? []) {
+      if (s.user_id !== context.userId) await sendNotification(supabaseAdmin, s.user_id, org?.name ?? "Gabinet").catch(() => undefined);
+    }
     return { ok: true };
   });
