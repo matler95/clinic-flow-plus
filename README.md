@@ -30,7 +30,7 @@ bun run start        # Node production server (after build)
 
 ## Migracje bazy danych
 
-SQL aplikacji znajduje się w `supabase/migrations/`; Supabase CLI jest źródłem prawdy dla nowych, pustych środowisk. Lokalny `supabase start` i `supabase db reset` wymagają Docker.
+SQL aplikacji i testy pgTAP znajdują się w `supabase/migrations/` i `supabase/tests/`; Supabase CLI jest źródłem prawdy dla nowych, pustych środowisk. Lokalny `supabase start`, `supabase db reset` i `supabase test db --local` wymagają Docker.
 
 > **Uwaga:** migracje bazowe opisują pustą bazę. Nie uruchamiaj `supabase db push` na istniejącym projekcie, dopóki schemat i historia migracji projektu nie zostaną porównane; istniejący projekt może wymagać kontrolowanego oznaczenia migracji jako zastosowanych.
 

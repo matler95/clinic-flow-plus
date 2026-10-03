@@ -51,6 +51,7 @@ jobs:
           version: 2.119.0
       - run: supabase start
       - run: supabase db reset
+      - run: supabase test db --local
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
