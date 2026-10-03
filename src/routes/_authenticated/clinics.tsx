@@ -223,6 +223,10 @@ function OrgPanel({ org }: { org: Org }) {
   const qc = useQueryClient();
   const isAdmin = org.role === "admin";
   const personal = org.kind === "personal";
+  const [me, setMe] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setMe(data.user?.id ?? null));
+  }, []);
   const memberCount = useQuery({
     queryKey: ["member-count", org.id],
     enabled: isAdmin && !personal,
@@ -276,10 +280,12 @@ function OrgPanel({ org }: { org: Org }) {
           {isAdmin && !personal && <TabsTrigger value="members">Zespół</TabsTrigger>}
           {can.ownLinks(org.role) && <TabsTrigger value="links">{isAdmin && !personal ? "Linki" : "Moje linki"}</TabsTrigger>}
           {!personal && <TabsTrigger value="send">Wyślij do skrzynki</TabsTrigger>}
+          {!personal && <TabsTrigger value="subs">Zastępstwa</TabsTrigger>}
           {can.audit(org.role) && <TabsTrigger value="audit">Audyt</TabsTrigger>}
         </TabsList>
         {can.ownLinks(org.role) && <TabsContent value="links"><LinksTab org={org} /></TabsContent>}
         {!personal && <TabsContent value="send"><SendTab org={org} /></TabsContent>}
+        {!personal && <TabsContent value="subs"><SubstitutionsTab org={org} me={me} /></TabsContent>}
         {isAdmin && !personal && <TabsContent value="members"><MembersTab org={org} /></TabsContent>}
         {can.audit(org.role) && <TabsContent value="audit"><AuditTab org={org} /></TabsContent>}
       </Tabs>
