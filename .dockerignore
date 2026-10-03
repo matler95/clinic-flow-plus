@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.git
+.github
+.lovable
+.output
+.wrangler
+.tanstack
+node_modules
+coverage
+*.log

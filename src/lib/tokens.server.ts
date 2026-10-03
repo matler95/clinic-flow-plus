@@ -62,14 +62,14 @@ export const MAX_BYTES = 50 * 1024 * 1024;
  * Every attempt is written to notifications_outbox with its real result.
  */
 export async function sendNotification(
-  admin: { from: (t: string) => any },
+  admin: Admin,
   userId: string,
   orgName: string,
 ) {
   const body = `Nowy plik w: ${orgName}`;
   const { pushToUser, pushConfigured } = await import("./push.server");
   const { sendEmail, emailConfigured } = await import("./email.server");
-  const res = await pushToUser(admin as any, userId).catch(() => ({ sent: 0, failed: 1 }));
+  const res = await pushToUser(admin, userId).catch(() => ({ sent: 0, failed: 1 }));
   const pushStatus = !pushConfigured() ? "not_configured" : res.sent > 0 ? "sent" : res.failed > 0 ? "failed" : "no_device";
 
   // E-mail is the fallback channel: sent when push did not reach any device (or always when no push is configured).

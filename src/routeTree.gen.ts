@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedClinicsRouteImport } from './routes/_authenticated/clinics'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as DTokenRouteImport } from './routes/d.$token'
 import { Route as ApiPublicHooksPurgeExpiredRouteImport } from './routes/api/public/hooks/purge-expired'
 
@@ -47,6 +48,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DTokenRoute = DTokenRouteImport.update({
   id: '/d/$token',
   path: '/d/$token',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/clinics': typeof AuthenticatedClinicsRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/api/health': typeof ApiHealthRoute
   '/d/$token': typeof DTokenRoute
   '/api/public/hooks/purge-expired': typeof ApiPublicHooksPurgeExpiredRoute
 }
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/clinics': typeof AuthenticatedClinicsRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/api/health': typeof ApiHealthRoute
   '/d/$token': typeof DTokenRoute
   '/api/public/hooks/purge-expired': typeof ApiPublicHooksPurgeExpiredRoute
 }
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/_authenticated/clinics': typeof AuthenticatedClinicsRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/api/health': typeof ApiHealthRoute
   '/d/$token': typeof DTokenRoute
   '/api/public/hooks/purge-expired': typeof ApiPublicHooksPurgeExpiredRoute
 }
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/clinics'
     | '/inbox'
     | '/settings'
+    | '/api/health'
     | '/d/$token'
     | '/api/public/hooks/purge-expired'
   fileRoutesByTo: FileRoutesByTo
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
     | '/clinics'
     | '/inbox'
     | '/settings'
+    | '/api/health'
     | '/d/$token'
     | '/api/public/hooks/purge-expired'
   id:
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '/_authenticated/clinics'
     | '/_authenticated/inbox'
     | '/_authenticated/settings'
+    | '/api/health'
     | '/d/$token'
     | '/api/public/hooks/purge-expired'
   fileRoutesById: FileRoutesById
@@ -123,6 +135,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   DTokenRoute: typeof DTokenRoute
   ApiPublicHooksPurgeExpiredRoute: typeof ApiPublicHooksPurgeExpiredRoute
 }
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/d/$token': {
       id: '/d/$token'
       path: '/d/$token'
@@ -207,6 +227,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiHealthRoute: ApiHealthRoute,
   DTokenRoute: DTokenRoute,
   ApiPublicHooksPurgeExpiredRoute: ApiPublicHooksPurgeExpiredRoute,
 }

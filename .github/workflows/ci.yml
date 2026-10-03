@@ -10,12 +10,38 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - run: npm i --legacy-peer-deps --no-package-lock
-      - run: npx tsc --noEmit
-      - run: npm run lint --if-present
-        continue-on-error: true  # formatowanie (prettier) w starszym kodzie – do uporządkowania osobnym commitem
-      - run: npm test
-      - run: npm run build
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bun run tsc --noEmit
+      - run: bun run lint
+      - run: bun run test
+      - run: bun run build
+  container:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production image
+        env:
+          VITE_SUPABASE_URL: https://example.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+        run: docker build --build-arg VITE_SUPABASE_URL --build-arg VITE_SUPABASE_PUBLISHABLE_KEY -t clinic-flow-plus:ci .
+      - name: Smoke-test container health endpoint
+        run: |
+          set -euo pipefail
+          docker run -d --name clinic-flow-plus-ci -p 127.0.0.1:3000:3000 clinic-flow-plus:ci
+          cleanup() { docker rm -f clinic-flow-plus-ci >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          for attempt in $(seq 1 30); do
+            if response=$(curl --fail --silent http://127.0.0.1:3000/api/health); then
+              if [ "$response" = '{"status":"ok"}' ]; then exit 0; fi
+            fi
+            sleep 1
+          done
+          docker logs clinic-flow-plus-ci
+          exit 1
   secrets:
     runs-on: ubuntu-latest
     steps:

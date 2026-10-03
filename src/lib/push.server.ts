@@ -4,6 +4,7 @@
 // sender or patient data ever leaves the app through a push service.
 
 type Subscription = { id: string; endpoint: string };
+type Admin = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
 
 function b64url(bytes: ArrayBuffer | Uint8Array): string {
   const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -55,13 +56,7 @@ export function pushConfigured(): boolean {
 
 /** Sends a content-free push to every device of a user. Dead endpoints are pruned. */
 export async function pushToUser(
-  admin: {
-    from: (t: string) => {
-      select: (c: string) => { eq: (c: string, v: string) => Promise<{ data: Subscription[] | null }> };
-      delete: () => { eq: (c: string, v: string) => Promise<unknown> };
-      update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
-    };
-  },
+  admin: Admin,
   userId: string,
 ): Promise<{ sent: number; failed: number }> {
   if (!pushConfigured()) return { sent: 0, failed: 0 };
