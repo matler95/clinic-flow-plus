@@ -9,6 +9,7 @@ import { fetchMyOrgs } from "@/lib/queries";
 import { can } from "@/lib/roles";
 import { getFileUrl, deleteItem, assignItem, transferItem } from "@/lib/files.functions";
 import { ImageViewer } from "@/components/ImageViewer";
+import { DicomViewer } from "@/components/DicomViewer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,6 +47,7 @@ type Item = {
   created_at: string;
   direction: string;
   recipient_user_id: string | null;
+  substitute_for: string | null;
 };
 
 function InboxPage() {
@@ -85,6 +87,7 @@ function InboxPage() {
     },
   });
   const doctorsIn = (orgId: string) => (doctors.data ?? []).filter((d) => d.org_id === orgId);
+  const nameOf = (uid: string) => (doctors.data ?? []).find((d) => d.user_id === uid)?.name ?? "lekarza";
 
   async function doAssign(i: Item, doctorId: string) {
     try {
@@ -270,6 +273,11 @@ function InboxPage() {
                 <div className="flex items-center gap-2">
                   {!i.read_at && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
                   <span className={`truncate ${i.read_at ? "" : "font-semibold"}`}>{i.file_name}</span>
+                  {i.substitute_for && (
+                    <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                      Zastępstwo za {nameOf(i.substitute_for)}
+                    </span>
+                  )}
                 </div>
                 <p className="truncate text-xs text-muted-foreground">
                   {orgName(i.org_id)} · {i.direction === "to_clinic" ? `Do skrzynki gabinetu · ${i.sender_name ?? ""}` : i.sender_name || "Link do wysyłania"} · {fmtSize(i.size_bytes)}
@@ -320,10 +328,17 @@ function InboxPage() {
                   {new Date(open.item.created_at).toLocaleString("pl-PL")}
                 </SheetDescription>
               </SheetHeader>
+              {open.item.substitute_for && (
+                <p className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm">
+                  Zastępstwo za: <strong>{nameOf(open.item.substitute_for)}</strong>
+                </p>
+              )}
               {open.item.note && <p className="rounded-lg bg-muted px-3 py-2 text-sm">{open.item.note}</p>}
               <div className="min-h-0 flex-1 overflow-auto rounded-xl border bg-muted">
                 {open.item.mime_type.startsWith("image/") ? (
                   <ImageViewer src={open.url} alt={open.item.file_name} />
+                ) : open.item.mime_type === "application/dicom" ? (
+                  <DicomViewer src={open.url} />
                 ) : open.item.mime_type === "application/pdf" ? (
                   <iframe src={open.url} sandbox="allow-scripts" title="Podgląd PDF" className="h-full min-h-[60vh] w-full" />
                 ) : (
