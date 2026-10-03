@@ -5,24 +5,34 @@ Jeden inbox plików dla lekarza pracującego w wielu gabinetach. Recepcja i prac
 
 > **Tryb POC: bez danych pacjentów.** Dane pacjentów dopiero po Gate 1 (patrz `docs/gate1-checklist.md`).
 
-Stos: TanStack Start (React 19, TS) + Lovable Cloud / Supabase (Postgres + RLS + Storage), Web Push (VAPID), PWA.
+Stos: TanStack Start (React 19, TS) + Supabase (Postgres + RLS + Storage), Web Push (VAPID), PWA.
 
 ## Uruchomienie
 
 ```sh
-npm i --legacy-peer-deps
-npm run dev          # dev
-npm test             # vitest
-npm run build
+bun install --frozen-lockfile
+bun run dev          # dev
+bun run test         # vitest
+bun run build
+bun run start        # Node production server (after build)
 ```
 
 ## Zmienne środowiskowe (serwer)
 
 | Zmienna | Po co |
 |---|---|
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | publiczna konfiguracja Supabase osadzana w buildzie przeglądarkowym |
+| `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | połączenie serwerowe; service-role wyłącznie po stronie serwera |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY_PKCS8`, `VAPID_SUBJECT` | Web Push |
 | `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL` | e-mail jako kanał zapasowy (opcjonalnie) |
-| `LOVABLE_CRON_SECRET` | autoryzacja codziennego purge (ten sam sekret jako `CRON_SECRET` w GitHub Actions) |
+| `CRON_SECRET` | autoryzacja codziennego purge (ten sam sekret jako `CRON_SECRET` w GitHub Actions) |
+| `CRON_SECRET_PREVIOUS` | opcjonalny poprzedni sekret podczas rotacji |
+
+## Migracje bazy danych
+
+SQL aplikacji znajduje się w `supabase/migrations/`; Supabase CLI jest źródłem prawdy dla nowych, pustych środowisk. Lokalny `supabase start` i `supabase db reset` wymagają Docker.
+
+> **Uwaga:** migracje bazowe opisują pustą bazę. Nie uruchamiaj `supabase db push` na istniejącym projekcie, dopóki schemat i historia migracji projektu nie zostaną porównane; istniejący projekt może wymagać kontrolowanego oznaczenia migracji jako zastosowanych.
 
 ## Środowisko pilotażowe
 

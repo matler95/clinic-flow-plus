@@ -1,5 +1,5 @@
 # Daily retention purge (G3): physically deletes expired files from Storage, then DB rows.
-# Required repository secrets: APP_URL (e.g. https://app.example.pl), CRON_SECRET (= LOVABLE_CRON_SECRET on the server).
+# Required repository secrets: APP_URL (e.g. https://app.example.pl) and CRON_SECRET (same value configured on the app server).
 name: Retention purge
 on:
   schedule:

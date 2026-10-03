@@ -42,6 +42,19 @@ jobs:
           done
           docker logs clinic-flow-plus-ci
           exit 1
+  database-migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.119.0
+      - run: supabase start
+      - run: supabase db reset
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
+        continue-on-error: true
   secrets:
     runs-on: ubuntu-latest
     steps:

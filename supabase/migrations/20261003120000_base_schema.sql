@@ -1,4 +1,5 @@
--- ===== Base schema (from repo) =====
+-- Baseline schema for a clean Supabase project.
+-- Derived from the former Drizzle SQL artifact; keep all app-owned DDL versioned here.
 create table public.profiles (id uuid primary key, email text, display_name text, created_at timestamptz not null default now());
 create table public.organizations (id uuid primary key default gen_random_uuid(), name text not null check (char_length(name) between 1 and 120), kind text not null default 'clinic' check (kind in ('clinic','personal')), created_at timestamptz not null default now());
 create table public.memberships (id uuid primary key default gen_random_uuid(), org_id uuid not null references public.organizations(id) on delete cascade, user_id uuid not null, role text not null default 'doctor' check (role in ('admin','doctor','staff')), is_active boolean not null default true, created_at timestamptz not null default now(), unique (org_id, user_id));

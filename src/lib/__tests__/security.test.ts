@@ -74,13 +74,33 @@ describe("role capabilities", () => {
 describe("cron authentication", () => {
   const req = (auth?: string) => new Request("https://x/api", { method: "POST", headers: auth ? { authorization: auth } : {} });
   it("rejects missing/wrong bearer and accepts the right one", async () => {
-    vi.stubEnv("LOVABLE_CRON_SECRET", "s3cret");
+    vi.stubEnv("CRON_SECRET", "s3cret");
     expect((await authenticateCronRequest(req()))?.status).toBe(401);
     expect((await authenticateCronRequest(req("Bearer nope")))?.status).toBe(401);
     expect(await authenticateCronRequest(req("Bearer s3cret"))).toBeNull();
     vi.unstubAllEnvs();
   });
+  it("accepts the previous secret during rotation", async () => {
+    vi.stubEnv("CRON_SECRET", "current");
+    vi.stubEnv("CRON_SECRET_PREVIOUS", "previous");
+    expect(await authenticateCronRequest(req("Bearer previous"))).toBeNull();
+    vi.unstubAllEnvs();
+  });
+  it("temporarily accepts the legacy server secret during migration", async () => {
+    vi.stubEnv("CRON_SECRET", "");
+    vi.stubEnv("LOVABLE_CRON_SECRET", "legacy");
+    expect(await authenticateCronRequest(req("Bearer legacy"))).toBeNull();
+    vi.unstubAllEnvs();
+  });
+  it("does not accept the legacy secret when the new secret is configured", async () => {
+    vi.stubEnv("CRON_SECRET", "current");
+    vi.stubEnv("LOVABLE_CRON_SECRET", "legacy");
+    expect((await authenticateCronRequest(req("Bearer legacy")))?.status).toBe(401);
+    expect(await authenticateCronRequest(req("Bearer current"))).toBeNull();
+    vi.unstubAllEnvs();
+  });
   it("fails closed without a configured secret", async () => {
+    vi.stubEnv("CRON_SECRET", "");
     vi.stubEnv("LOVABLE_CRON_SECRET", "");
     expect((await authenticateCronRequest(req("Bearer x")))?.status).toBe(500);
     vi.unstubAllEnvs();
