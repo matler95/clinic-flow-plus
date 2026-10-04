@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { deleteItemStorageFirst } from "./item-deletion.server";
 
 const URL_TTL_S = 120;
 
@@ -44,15 +45,24 @@ export const deleteItem = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .maybeSingle();
     if (!item) throw new Error("Brak dostępu.");
-    const { error } = await context.supabase.from("items").delete().eq("id", item.id);
-    if (error) throw new Error("Nie można usunąć tego pliku.");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.storage.from("files").remove([item.storage_path]);
-    await supabaseAdmin.from("audit_log").insert({
-      org_id: item.org_id,
-      actor_user_id: context.userId,
-      action: "item.delete",
-      target: item.id,
+    await deleteItemStorageFirst({
+      removeStorageObject: async () => {
+        const { error } = await supabaseAdmin.storage.from("files").remove([item.storage_path]);
+        if (error) throw new Error("Nie można usunąć pliku z magazynu. Rekord zachowano.");
+      },
+      deleteDatabaseRow: async () => {
+        const { error } = await context.supabase.from("items").delete().eq("id", item.id);
+        if (error) throw new Error("Plik usunięto z magazynu, ale nie udało się usunąć rekordu.");
+      },
+      writeAuditRecord: async () => {
+        await supabaseAdmin.from("audit_log").insert({
+          org_id: item.org_id,
+          actor_user_id: context.userId,
+          action: "item.delete",
+          target: item.id,
+        });
+      },
     });
     return { ok: true };
   });

@@ -19,6 +19,7 @@ Provider shortlisting should compare EEA region availability, DPA/subprocessor t
 - **Completed:** Nitro explicitly targets `node-server`; the built app was started with Node and the public home page was smoke-tested over HTTP.
 - **Completed:** added a Node `start` script, a non-root multi-stage Dockerfile, a Docker context ignore file that excludes `.env`, and `/api/health`. CI now builds the image with dummy public configuration and smoke-tests the endpoint.
 - **Verification limitation:** the local Docker CLI is installed, but its Docker Desktop Linux engine is unavailable in this session. The Node artifact and `/api/health` were verified outside Docker; the new hosted CI job will provide the image-level verification.
+- **Completed:** explicit item deletion now removes Storage bytes first, then the RLS-authorized database row, then writes the audit event. Regression tests cover both Storage failure (row is retained) and database failure after byte removal (row remains for reconciliation).
 - **Completed:** removed Lovable preview auth brokering and Lovable error forwarding. Supabase now uses its default browser storage, while root-boundary errors remain visible in the browser console.
 - **Completed with a temporary compatibility window:** `CRON_SECRET` and `CRON_SECRET_PREVIOUS` are preferred; old Lovable-named values are accepted only as fallback so scheduled purge is not interrupted before secrets are rotated.
 - **Completed:** promoted the verified legacy SQL into timestamped Supabase CLI migrations, added the previously undocumented private `files` bucket configuration, retired the blank Drizzle schema/config, and added a clean-database migration job to CI.
@@ -48,7 +49,7 @@ The core implementation is therefore **not a blank-slate rebuild**. The main gap
 | Invitations | `addMember` writes a pending invitation but logs a dummy-email message; signup is available from the login screen. | Commercial onboarding is incomplete. Implement and test invitation/verification emails, password recovery, domain and redirect configuration, spam controls, and the intended signup policy. |
 | Telemetry | Lovable error forwarding has been removed. Root client errors and server failures currently reach console only; no production error/metric/uptime provider is configured. | Add production monitoring with sensitive-field scrubbing, alert ownership, and no file names, tokens, signed URLs, notes, or patient identifiers in logs. |
 | Automated assurance | Vitest covers selected utility/security behavior; an initial pgTAP suite now checks doctor/staff item isolation and inactive membership. The E2E plan remains manual; the database job has not run locally because Docker is unavailable. | Confirm the hosted migration/RLS job passes, expand negative cases to RPC grants/storage signing/retention, and automate critical flows before a real-data release. |
-| Deletion ordering | Explicit item deletion deletes the database row before removing Storage bytes in `src/lib/files.functions.ts`; the project rule requires storage deletion first for retention purge. | Make user deletion follow the same invariant: remove bytes first, keep the row and report failure if Storage deletion fails, then delete/audit. Add failure-injection tests. |
+| Deletion ordering | Explicit item deletion now follows Storage → database row → audit, matching retention purge. Unit tests verify failure handling at both deletion steps. | Add integration/failure-injection tests against Supabase Storage before patient-data use; the unit tests validate orchestration, not provider-specific deletion semantics. |
 | Privacy/legal gate | The Gate 1 checklist already calls out contracts, retention, EEA backend, CSP, AV, rate limits, pgTAP, and penetration testing. | Keep this gate; additionally assess the full data flow, vendor terms, DPIA need, incident obligations, backup locations, and clinic instructions with qualified advisers. |
 
 **Patient-data warning:** “no patient data” is a pilot operating rule, not a technical guarantee. Names or identifiers may be present in filenames, notes, scans, PDFs, DICOM headers, sender fields, backups, browser telemetry, and support exports. Use only synthetic fixtures until the release gate is approved, and design all systems as though uploads may contain sensitive health data.
@@ -109,9 +110,9 @@ Effort is relative planning guidance, not a fixed quote. Run phases in order; do
 - Expand the initial pgTAP suite to cover every tenant/role boundary, anonymous drop-link behavior, invitation acceptance, assignment/transfer/offboarding, file signing, audit immutability, and expiry. Include negative tests (cross-organization read/write, forged IDs, expired/revoked token, role change during session).
 - Add a migration pipeline: disposable local/test database → staging migration and smoke suite → reviewed production migration. Document forward-fix/rollback rules; schema rollback is not always safe. Do not run DDL automatically at web-app startup.
 - Define and test a complete backup/restore runbook for database **and object bytes**, including auth users, SQL functions/policies, Storage objects, and required secrets. Verify provider backups cover the needed data and retention; schedule a restore drill and record measured recovery time.
-- Correct explicit deletion to remove Storage bytes first. Add idempotent cleanup for failed uploads, failed scan objects, expired items, orphan objects, and rows whose object is missing. Make purge batch size/progress observable and safely resumable.
+- Add idempotent cleanup for failed uploads, failed scan objects, expired items, orphan objects, and rows whose object is missing. Make purge batch size/progress observable and safely resumable.
 
-**Exit:** the hosted clean-reset and initial RLS jobs pass; expanded policy tests pass; restore drill recovers DB plus private objects; failed Storage deletion demonstrably leaves the database record available for retry.
+**Exit:** the hosted clean-reset and initial RLS jobs pass; expanded policy tests pass; restore drill recovers DB plus private objects; integration tests confirm failed Storage deletion leaves the database record available for retry.
 
 ### Phase 3 — Production controls and operational readiness (L)
 
@@ -175,7 +176,7 @@ Run a secret scan on repository history and deployment settings before first pro
 5. [x] Remove preview auth/error hooks; prefer `CRON_SECRET` with a tested temporary legacy fallback (remove that fallback after deployment secret rotation).
 6. [x] Establish timestamped Supabase CLI migrations and add a clean-reset CI job. (Local reset could not run because Docker Desktop is unavailable; confirm the hosted job before applying anywhere.)
 7. [x] Add an initial pgTAP tenant-isolation suite to the clean Supabase CI job. (Hosted result pending.) Expand RPC/storage/retention coverage and add critical-flow E2E against disposable Supabase.
-8. Fix storage-first explicit deletion; add upload/orphan/scan failure tests.
+8. [x] Fix storage-first explicit deletion and add unit failure-order tests. Add integration coverage for upload/orphan/scan failures.
 9. Provision independently owned EEA staging Supabase and app deployment; configure domain, auth/email, private storage, backups, and monitoring.
 10. Implement quarantine scanning, rate limits, and production email; then run security/legal gates before any patient-data pilot.
 
