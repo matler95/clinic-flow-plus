@@ -86,13 +86,13 @@ describe("cron authentication", () => {
     expect(await authenticateCronRequest(req("Bearer previous"))).toBeNull();
     vi.unstubAllEnvs();
   });
-  it("temporarily accepts the legacy server secret during migration", async () => {
+  it("ignores legacy Lovable secrets entirely", async () => {
     vi.stubEnv("CRON_SECRET", "");
     vi.stubEnv("LOVABLE_CRON_SECRET", "legacy");
-    expect(await authenticateCronRequest(req("Bearer legacy"))).toBeNull();
+    expect((await authenticateCronRequest(req("Bearer legacy")))?.status).toBe(500);
     vi.unstubAllEnvs();
   });
-  it("does not accept the legacy secret when the new secret is configured", async () => {
+  it("does not accept the legacy secret when the provider-neutral secret is configured", async () => {
     vi.stubEnv("CRON_SECRET", "current");
     vi.stubEnv("LOVABLE_CRON_SECRET", "legacy");
     expect((await authenticateCronRequest(req("Bearer legacy")))?.status).toBe(401);
